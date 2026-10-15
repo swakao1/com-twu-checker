@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-pdf="on">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -122,6 +122,16 @@ h2 small { font-size: 13px; font-weight: 600; color: var(--muted); }
 .step b { font-size: 14px; color: var(--twu); padding-bottom: 4px; border-bottom: 2px solid var(--twu); margin-bottom: 3px; }
 .step .milestone { font-weight: 700; color: var(--twu); margin-top: 4px; }
 .note { font-size: 13px; color: var(--muted); max-width: 70ch; }
+.save { display: flex; gap: 16px 24px; align-items: center; flex-wrap: wrap; background: var(--surface); border: 2px solid var(--brand); border-radius: 12px; padding: 14px; }
+.save-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.save-text strong { font-size: 17px; color: var(--brand); }
+.save-form { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.save-form label { font-size: 13px; font-weight: 700; }
+.save-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.save-row input { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg); font: 500 15px var(--font-body); }
+.save-row input:focus-visible, .save-row button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.save-row button { min-height: 44px; padding: 0 18px; border-radius: 8px; border: 0; background: var(--brand); color: var(--brand-ink); font: 700 15px var(--font-body); cursor: pointer; }
+.save-msg { font-size: 13px; color: var(--muted); min-height: 1em; }
 .advise { display: flex; gap: 16px; align-items: center; background: var(--brand-soft); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; flex-wrap: wrap; }
 .advise img { width: 112px; height: 112px; background: #FFFFFF; padding: 6px; border-radius: 8px; flex: none; }
 .advise-text { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
@@ -133,6 +143,7 @@ footer .contact { user-select: all; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
 </style>
 <style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <header class="top">
@@ -182,6 +193,21 @@ footer .contact { user-select: all; }
         <div class="step"><b>Spring 2</b><span>Clinical student teaching (or residency)</span><span>EDUC 4946</span><span class="milestone">Graduate and certify</span></div>
       </div>
       <div class="note">* Requires 15–20 hours of clinical field experience. ** $55 application fee to the Educator Preparation Program (EPP).</div>
+    </section>
+
+    <section class="save" id="savePanel" hidden>
+      <div class="save-text">
+        <strong>Save your results</strong>
+        <span>Download a PDF of your checklist to keep or bring to your advisor.</span>
+      </div>
+      <div class="save-form">
+        <label for="studentName">Your name (optional)</label>
+        <div class="save-row">
+          <input id="studentName" type="text" autocomplete="name" placeholder="First and last name">
+          <button type="button" id="pdfBtn">Download PDF</button>
+        </div>
+        <span class="save-msg" id="pdfMsg" aria-live="polite"></span>
+      </div>
     </section>
 
     <div class="advise">
@@ -283,7 +309,7 @@ footer .contact { user-select: all; }
           if (box.checked) checked[id] = true; else delete checked[id];
           save(); update();
         });
-        all.push({ id: id, hrs: c[1], box: box });
+        all.push({ id: id, hrs: c[1], box: box, code: c[0], title: c[2], area: c[3], term: t.label });
         card.appendChild(lab);
       });
       el.appendChild(card);
@@ -318,6 +344,95 @@ footer .contact { user-select: all; }
     document.getElementById('bar').setAttribute('aria-valuenow', hours);
   }
   update();
+
+  // PDF download (enabled only in the GitHub build, where downloads are allowed)
+  if (document.documentElement.getAttribute('data-pdf') === 'on') {
+    document.getElementById('savePanel').hidden = false;
+    var nameInput = document.getElementById('studentName');
+    try { nameInput.value = localStorage.getItem(KEY + '-name') || ''; } catch (e) {}
+    nameInput.addEventListener('input', function () { try { localStorage.setItem(KEY + '-name', nameInput.value); } catch (e) {} });
+    document.getElementById('pdfBtn').addEventListener('click', function () {
+      var msg = document.getElementById('pdfMsg');
+      if (!window.jspdf || !window.jspdf.jsPDF) { msg.textContent = 'The PDF tool did not load. Check your internet connection and reload the page.'; return; }
+      try { makePdf(nameInput.value.trim()); msg.textContent = 'Your PDF has been downloaded.'; }
+      catch (e) { msg.textContent = 'Something went wrong making the PDF. Reload the page and try again.'; }
+    });
+  }
+  function clean(t) { return String(t).replace(/[–—]/g, '-').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/·/g, '-'); }
+  function makePdf(name) {
+    var doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+    var W = 612, M = 48, y = 54;
+    var green = [47, 90, 30], grey = [74, 85, 104];
+    var hours = 0, done = 0;
+    all.forEach(function (c) { if (c.box.checked) { hours += c.hrs; done++; } });
+    function newPageIfNeeded(h) { if (y + h > 740) { doc.addPage(); y = 54; } }
+    doc.setFillColor(green[0], green[1], green[2]); doc.rect(0, 0, W, 86, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text('COLLEGE OF THE MAINLAND ~ TEXAS WOMAN\'S UNIVERSITY', M, 30);
+    doc.setFontSize(20); doc.text('EC-6 Teacher with ESL: My Course Checklist', M, 58);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text('AAT EC-6 at COM, then a B.S. in Education at TWU', M, 75);
+    y = 112;
+    doc.setTextColor(27, 34, 48); doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold'); doc.text('Student:', M, y);
+    doc.setFont('helvetica', 'normal'); doc.text(name ? clean(name) : '____________________________', M + 52, y);
+    doc.setFont('helvetica', 'bold'); doc.text('Date:', 400, y);
+    doc.setFont('helvetica', 'normal'); doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 432, y);
+    y += 24;
+    doc.setDrawColor(green[0], green[1], green[2]); doc.setLineWidth(1.5); doc.roundedRect(M, y, W - 2 * M, 50, 6, 6, 'S');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(24); doc.setTextColor(green[0], green[1], green[2]);
+    doc.text(hours + ' / ' + total, M + 14, y + 33);
+    doc.setFontSize(11); doc.setTextColor(27, 34, 48);
+    doc.text('credit hours completed', M + 14 + doc.getTextWidth(hours + ' / ' + total) * 24 / 11 + 8, y + 32);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(grey[0], grey[1], grey[2]);
+    var left = total - hours;
+    doc.text(done + ' of ' + all.length + ' courses  |  ' + (left <= 0 ? 'COM plan complete - apply to TWU' : left + ' hours to go'), W - M - 14, y + 32, { align: 'right' });
+    y += 72;
+    var currentTerm = null;
+    all.forEach(function (c) {
+      if (c.term !== currentTerm) {
+        currentTerm = c.term;
+        newPageIfNeeded(40);
+        y += 6;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(green[0], green[1], green[2]);
+        doc.text(c.term, M, y);
+        var termHrs = 0, termDone = 0;
+        all.forEach(function (o) { if (o.term === c.term) { termHrs += o.hrs; if (o.box.checked) termDone += o.hrs; } });
+        doc.setFontSize(10); doc.setTextColor(grey[0], grey[1], grey[2]);
+        doc.text(termDone + ' / ' + termHrs + ' hrs', W - M, y, { align: 'right' });
+        doc.setDrawColor(green[0], green[1], green[2]); doc.setLineWidth(1); doc.line(M, y + 5, W - M, y + 5);
+        y += 20;
+      }
+      newPageIfNeeded(20);
+      doc.setDrawColor(27, 34, 48); doc.setLineWidth(0.8); doc.rect(M, y - 9, 10, 10, 'S');
+      if (c.box.checked) {
+        doc.setDrawColor(green[0], green[1], green[2]); doc.setLineWidth(1.6);
+        doc.line(M + 2, y - 4, M + 4.5, y - 1); doc.line(M + 4.5, y - 1, M + 9, y - 8);
+      }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(27, 34, 48);
+      doc.text(clean(c.code), M + 18, y);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(grey[0], grey[1], grey[2]);
+      var SHORT = { '010': 'Communication', '020': 'Mathematics', '030': 'Life/Phys. Sciences', '040': 'Lang./Phil./Culture', '050': 'Creative Arts', '060': 'American History', '070': 'Government', '080': 'Social/Behav. Sci.', '090': 'Comp. Area Option' };
+      var areaTxt = c.area === 'fld' ? 'Teaching field' : c.area + ' ' + SHORT[c.area];
+      var t = clean(c.title);
+      while (doc.getTextWidth(t) > 165 && t.length > 4) t = t.slice(0, -2);
+      if (t !== clean(c.title)) t = t.replace(/\s+\S*$/, '') + '...';
+      doc.text(t, M + 200, y);
+      doc.text(areaTxt, M + 375, y);
+      doc.setFontSize(10);
+      doc.setTextColor(27, 34, 48); doc.text(c.hrs + ' hr' + (c.hrs === 1 ? '' : 's'), W - M, y, { align: 'right' });
+      y += 17;
+    });
+    newPageIfNeeded(60);
+    y += 10;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(27, 34, 48);
+    doc.text('Next: apply to TWU in January/February (minimum 2.75 GPA).', M, y); y += 16;
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(grey[0], grey[1], grey[2]); doc.setFontSize(9);
+    doc.text(doc.splitTextToSize('This is a self-check, not an official degree audit. Bring this sheet to a COM advisor to confirm your plan: www.com.edu/student-support/academic-advising.html', W - 2 * M), M, y);
+    y += 26;
+    doc.text('Questions? Social and Behavioral Sciences Department - LRC Suite A - 409-933-8107 - swakao@com.edu', M, y);
+    var fname = 'COM-TWU-EC6-checklist' + (name ? '-' + clean(name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') : '') + '.pdf';
+    doc.save(fname);
+  }
 
   var clearBtn = document.getElementById('clearBtn'), confirmBox = document.getElementById('confirm');
   clearBtn.addEventListener('click', function () { clearBtn.hidden = true; confirmBox.hidden = false; });
