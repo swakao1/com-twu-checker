@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>COM–TWU EC-6 Course Checker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Archivo+Narrow:wght@600;700&display=swap">
+<style>
+/* Layout: sticky progress band on top, then term cards in a responsive grid (1 col phone → 3 col desktop), TWU steps below. */
+:root {
+  --bg: #F6F8F3;
+  --surface: #FFFFFF;
+  --fg: #1B2230;
+  --muted: #4A5568;
+  --line: #D5DECD;
+  --brand: #2F5A1E;
+  --brand-ink: #FFFFFF;
+  --brand-soft: #EEF4E9;
+  --accent: #F2B230;
+  --twu: #8C1D2F;
+  --twu-soft: #F7ECEE;
+  /* core component area colors: ink (text) + tint (box) */
+  --c010: #1F5FAE; --t010: #E3EDFA;
+  --c020: #6B3FA0; --t020: #EFE7F8;
+  --c030: #0D7366; --t030: #DFF3EF;
+  --c040: #85561C; --t040: #F5ECDF;
+  --c050: #A1306F; --t050: #F8E5F0;
+  --c060: #B0352A; --t060: #FBE7E4;
+  --c070: #2B3F8F; --t070: #E5E9F7;
+  --c080: #A9500C; --t080: #FCEDE0;
+  --c090: #56640F; --t090: #EFF2DA;
+  --cfld: #3F4A5A; --tfld: #ECEFF3;
+  --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --font-label: 'Archivo Narrow', 'Arial Narrow', Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11160F; --surface: #1A2117; --fg: #E8EDE4; --muted: #A9B4A2; --line: #2E3A29;
+    --brand: #7FB862; --brand-ink: #0F140D; --brand-soft: #1F2A1B; --accent: #F2B230;
+    --twu: #E58A99; --twu-soft: #2A1A1D; color-scheme: dark;
+    --c010: #8DB8F0; --t010: #17243A; --c020: #C2A4EC; --t020: #241B33; --c030: #6FD0C0; --t030: #12291F;
+    --c040: #E0B479; --t040: #2C2216; --c050: #EE9CC8; --t050: #301A26; --c060: #F29A8E; --t060: #321B18;
+    --c070: #A3B2F0; --t070: #1A1F36; --c080: #F3AC6E; --t080: #30200F; --c090: #C3D26A; --t090: #23280F;
+    --cfld: #C1CAD6; --tfld: #1E232B;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11160F; --surface: #1A2117; --fg: #E8EDE4; --muted: #A9B4A2; --line: #2E3A29;
+  --brand: #7FB862; --brand-ink: #0F140D; --brand-soft: #1F2A1B; --accent: #F2B230;
+  --twu: #E58A99; --twu-soft: #2A1A1D; color-scheme: dark;
+  --c010: #8DB8F0; --t010: #17243A; --c020: #C2A4EC; --t020: #241B33; --c030: #6FD0C0; --t030: #12291F;
+  --c040: #E0B479; --t040: #2C2216; --c050: #EE9CC8; --t050: #301A26; --c060: #F29A8E; --t060: #321B18;
+  --c070: #A3B2F0; --t070: #1A1F36; --c080: #F3AC6E; --t080: #30200F; --c090: #C3D26A; --t090: #23280F;
+  --cfld: #C1CAD6; --tfld: #1E232B;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { background: var(--brand); color: var(--brand-ink); }
+header.top .wrap { padding-block: 22px 20px; display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-family: var(--font-label); font-weight: 700; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 6vw, 40px); line-height: 1.05; letter-spacing: -.02em; text-wrap: balance; }
+header.top p { margin: 0; max-width: 62ch; opacity: .9; }
+
+.tracker { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.tracker .wrap { padding-block: 12px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.big { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.big strong { font-size: 34px; font-weight: 800; line-height: 1; color: var(--brand); }
+.big span { font-size: 16px; font-weight: 700; color: var(--muted); }
+.big small { display: block; }
+.meter { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.meter-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 700; flex-wrap: wrap; }
+.meter-row .status { color: var(--brand); }
+.bar { height: 12px; border-radius: 6px; background: var(--brand-soft); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--brand); border-radius: 6px; transition: width .25s ease; }
+.label-sm { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+button.clear { min-height: 44px; padding: 0 16px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); font: 700 14px var(--font-body); cursor: pointer; }
+button.clear:hover { border-color: var(--muted); }
+.confirm { display: flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 600; }
+.confirm button { min-height: 44px; padding: 0 14px; border-radius: 8px; font: 700 14px var(--font-body); cursor: pointer; border: 1.5px solid var(--line); background: var(--surface); color: var(--fg); }
+.confirm button.yes { background: var(--twu); border-color: var(--twu); color: #FFFFFF; }
+
+main .wrap { padding-block: 22px 32px; display: flex; flex-direction: column; gap: 26px; }
+h2 { margin: 0; font-size: 20px; font-weight: 800; color: var(--brand); padding-bottom: 6px; border-bottom: 3px solid var(--accent); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; text-wrap: balance; }
+h2 small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.year { display: flex; flex-direction: column; gap: 10px; }
+.year-label { font-family: var(--font-label); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.terms { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.term { background: var(--brand-soft); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.term-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 4px 6px; border-bottom: 2px solid var(--brand); font-variant-numeric: tabular-nums; }
+.term-head b { font-size: 14px; color: var(--brand); }
+.term-head span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.course { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 10px; border-radius: 8px; border: 1.5px solid transparent; background: var(--surface); cursor: pointer; }
+.course input { width: 20px; height: 20px; margin: 0; accent-color: var(--brand); flex: none; cursor: pointer; }
+.course .code { flex: 1; min-width: 0; font-weight: 700; font-size: 14.5px; }
+.course { background: var(--tint, var(--surface)); }
+.course .code { color: var(--ink, var(--fg)); }
+.course:has(input:checked) { border-color: var(--ink, var(--brand)); }
+.course:has(input:checked) .code { color: var(--ink, var(--brand)); }
+.course input { accent-color: var(--ink, var(--brand)); }
+.tag { display: inline-block; margin-top: 3px; font-family: var(--font-label); font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 4px; padding: 0 5px; line-height: 1.5; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.legend span { font-family: var(--font-label); font-size: 12.5px; font-weight: 700; color: var(--ink); background: var(--tint); border: 1.5px solid var(--ink); border-radius: 6px; padding: 3px 8px; }
+.course .title { display: block; font-size: 12.5px; font-weight: 500; color: var(--muted); line-height: 1.3; }
+.term-head b { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.term-head .num { font-style: normal; font-family: var(--font-label); font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--brand-ink); background: var(--brand); border-radius: 4px; padding: 1px 6px; flex: none; }
+.term-head .sum { flex: none; }
+.term-head .sum.full { color: var(--brand); }
+.course .sem { display: block; font-size: 11px; font-weight: 600; text-align: right; }
+.course .hrs { font-size: 13px; font-weight: 700; color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+.course:has(input:checked) { border-color: var(--brand); }
+.course:has(input:checked) .code { color: var(--brand); }
+.course:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.apply { background: var(--brand); color: var(--brand-ink); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.apply .eyebrow { font-size: 12px; }
+.apply strong { font-size: 20px; font-weight: 800; }
+
+.twu h2 { color: var(--twu); border-bottom-color: var(--twu); }
+.steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.step { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; }
+.step b { font-size: 14px; color: var(--twu); padding-bottom: 4px; border-bottom: 2px solid var(--twu); margin-bottom: 3px; }
+.step .milestone { font-weight: 700; color: var(--twu); margin-top: 4px; }
+.note { font-size: 13px; color: var(--muted); max-width: 70ch; }
+.advise { display: flex; gap: 16px; align-items: center; background: var(--brand-soft); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; flex-wrap: wrap; }
+.advise img { width: 112px; height: 112px; background: #FFFFFF; padding: 6px; border-radius: 8px; flex: none; }
+.advise-text { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.advise-text strong { font-size: 17px; color: var(--brand); }
+.advise-text a { color: var(--brand); font-weight: 700; }
+footer { border-top: 1px solid var(--line); background: var(--brand-soft); }
+footer .wrap { padding-block: 14px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
+footer .contact { user-select: all; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+<style>[hidden]{display:none!important} body{margin:0} img{max-width:100%}</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">College of the Mainland ~ Texas Woman's University</div>
+    <h1>EC–6 Teacher with ESL: Course Checker</h1>
+    <p>Check off the COM courses you've finished. Your credit hours add up as you go, and this page remembers your checks on this device.</p>
+  </div>
+</header>
+
+<div class="tracker" aria-live="polite">
+  <div class="wrap">
+    <div>
+      <div class="label-sm">My credit hours</div>
+      <div class="big"><strong id="hours">0</strong><span id="total">/ 60</span></div>
+    </div>
+    <div class="meter">
+      <div class="meter-row"><span id="count">0 of 20 courses</span><span class="status" id="status">60 hours to go</span></div>
+      <div class="bar" role="progressbar" id="bar" aria-valuemin="0" aria-valuemax="64" aria-valuenow="0" aria-label="Credit hours completed"><i id="fill"></i></div>
+    </div>
+    <button type="button" class="clear" id="clearBtn">Clear all</button>
+    <div class="confirm" id="confirm" hidden>
+      <span>Clear every check?</span>
+      <button type="button" class="yes" id="yesBtn">Clear</button>
+      <button type="button" id="noBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="wrap">
+    <section class="year-wrap" style="display:flex;flex-direction:column;gap:18px">
+      <h2>At COM · AAT EC–6 <small>Full-time schedule · 60 hours</small></h2>
+      <div class="legend" id="legend" aria-label="Core component areas"></div>
+      <div class="terms" id="terms"></div>
+      <div class="note">Course options follow the COM catalog's full-time schedule for the AAT EC–6. Take one course from each "or" group. In Semester 4, a content-area elective can replace Child Growth and Development; ask your advisor which fits your teaching field.</div>
+    </section>
+
+    <section class="twu" style="display:flex;flex-direction:column;gap:12px">
+      <h2>Then at TWU · B.S. in Education <small>At COM and/or online</small></h2>
+      <div class="steps">
+        <div class="step"><b>Fall 1</b><span>READ 3433</span><span>LS 3013</span><span>SPED 3203</span><span>MATH 1523</span><span>KINS 3583</span><span class="milestone">Apply to the EPP**</span></div>
+        <div class="step"><b>Spring 1</b><span>EDBE 3053</span><span>ECE 3573</span><span>READ 4453*</span><span>HIST 3223 or EDUC 4903</span><span>ECE 3663</span><span>EDUC 3003*</span></div>
+        <div class="step"><b>Summer 1</b><span>READ 4383</span><span>EDSP 4203</span><span>EDUC 3482</span><span class="milestone">Pass State EC–6 Exam ($116)</span></div>
+        <div class="step"><b>Fall 2</b><span>EDUC 4113*</span><span>EDUC 4243*</span><span>READ 4493*</span><span>BIOL 4583</span><span>EDBE 3003</span><span>EDBE 3453</span></div>
+        <div class="step"><b>By Dec. 1</b><span class="milestone">Pass State PPR and STR Exams ($116 each)</span><span class="milestone">Pass State Supplemental Exam ($116)</span></div>
+        <div class="step"><b>Spring 2</b><span>Clinical student teaching (or residency)</span><span>EDUC 4946</span><span class="milestone">Graduate and certify</span></div>
+      </div>
+      <div class="note">* Requires 15–20 hours of clinical field experience. ** $55 application fee to the Educator Preparation Program (EPP).</div>
+    </section>
+
+    <div class="advise">
+      <img src="data:image/png;base64,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" alt="QR code for COM Academic Advising" width="112" height="112">
+      <div class="advise-text">
+        <strong>Meet with an advisor</strong>
+        <span>This is a self-check, not an official degree audit. Course choices can change, so meet with a COM advisor each term to confirm your plan before you register.</span>
+        <a href="https://www.com.edu/student-support/academic-advising.html" target="_blank" rel="noopener">COM Academic Advising</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><strong>Questions?</strong> Social and Behavioral Sciences Department · LRC Suite A</span>
+    <span class="contact">409-933-8107 · swakao@com.edu</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var HIST = 'HIST 1301, 1302 or 2301';
+  var SCI = 'BIOL, GEOL, CHEM, PHYS';
+  var AREAS = {
+    '010': 'Communication', '020': 'Mathematics', '030': 'Life & Physical Sciences',
+    '040': 'Language, Philosophy & Culture', '050': 'Creative Arts', '060': 'American History',
+    '070': 'Government / Political Science', '080': 'Social & Behavioral Sciences',
+    '090': 'Component Area Option', 'fld': 'Teaching field (not core)'
+  };
+  var TERMS = [
+    { label: 'Semester 1', courses: [
+      ['PSYC 1300 or EDUC 1300', 3, 'Learning Framework', '090'],
+      ['ENGL 1301', 3, 'Composition I', '010'],
+      ['MATH 1314', 3, 'College Algebra', '020'],
+      ['EDUC 1301', 3, 'Introduction to the Teaching Profession', 'fld'],
+      [HIST, 3, 'U.S. History I, U.S. History II or Texas History', '060']] },
+    { label: 'Semester 2', courses: [
+      ['ENGL 1302', 3, 'Composition II', '010'],
+      [HIST, 3, 'Second history course (a different one)', '060'],
+      [SCI, 4, 'Lab science', '030'],
+      ['EDUC 2301', 3, 'Introduction to Special Populations', 'fld'],
+      ['MATH 1350', 3, 'Mathematics for Teachers I', 'fld']] },
+    { label: 'Semester 3', courses: [
+      ['GOVT 2305 or 2306', 3, 'Federal or Texas Government', '070'],
+      ['SPCH 1315', 3, 'Public Speaking', '010'],
+      [SCI, 4, 'Second lab science (a different one)', '030'],
+      ['PSYC 2301 or SOCI 1301', 3, 'General Psychology or Intro to Sociology', '080'],
+      ['PHED 1164', 1, 'Intro to Physical Fitness and Wellness', '090']] },
+    { label: 'Semester 4', courses: [
+      ['GOVT 2305 or 2306', 3, 'The government course you haven’t taken', '070'],
+      ['ARTS 1301, 1303 or 1304', 3, 'Art Appreciation, Art History I or II', '050'],
+      ['PHIL 1301, HUMA 1301 or ENGL 2341', 3, 'Philosophy, Humanities I or Forms of Literature', '040'],
+      ['MATH 1351', 3, 'Mathematics for Teachers II', 'fld'],
+      ['TECA 1354 or content elective', 3, 'Child Growth and Development, or an elective for your teaching field', 'fld']] }
+  ];
+  var legend = document.getElementById('legend');
+  Object.keys(AREAS).forEach(function (k) {
+    var s = document.createElement('span');
+    s.style.setProperty('--ink', 'var(--c' + k + ')');
+    s.style.setProperty('--tint', 'var(--t' + k + ')');
+    s.textContent = (k === 'fld' ? '' : k + ' ') + AREAS[k];
+    legend.appendChild(s);
+  });
+  var KEY = 'com-twu-ec6-checked-v2';
+  var checked = {};
+  try { checked = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { checked = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(checked)); } catch (e) {} }
+
+  var all = [], sums = [];
+  function build(terms, prefix, el, withApply) {
+    terms.forEach(function (t, ti) {
+      var hrs = t.courses.reduce(function (s, c) { return s + c[1]; }, 0);
+      var card = document.createElement('div');
+      card.className = 'term';
+      var head = document.createElement('div');
+      head.className = 'term-head';
+      head.innerHTML = '<b></b><span class="sum"></span>';
+      head.querySelector('b').textContent = t.label;
+      var sum = head.querySelector('.sum');
+      sums.push({ el: sum, total: hrs, prefix: prefix + ti + '-' });
+      card.appendChild(head);
+      t.courses.forEach(function (c, ci) {
+        var id = prefix + ti + '-' + ci;
+        var lab = document.createElement('label');
+        lab.className = 'course';
+        var box = document.createElement('input');
+        box.type = 'checkbox'; box.id = id; box.checked = !!checked[id];
+        var code = document.createElement('span'); code.className = 'code'; code.textContent = c[0];
+        var title = document.createElement('span'); title.className = 'title'; title.textContent = c[2];
+        code.appendChild(title);
+        var tag = document.createElement('span'); tag.className = 'tag';
+        tag.textContent = c[3] === 'fld' ? 'Teaching field' : c[3] + ' ' + AREAS[c[3]];
+        code.appendChild(tag);
+        lab.style.setProperty('--ink', 'var(--c' + c[3] + ')');
+        lab.style.setProperty('--tint', 'var(--t' + c[3] + ')');
+        var h = document.createElement('span'); h.className = 'hrs'; h.textContent = c[1] + ' hr' + (c[1] === 1 ? '' : 's');        lab.appendChild(box); lab.appendChild(code); lab.appendChild(h);
+        box.addEventListener('change', function () {
+          if (box.checked) checked[id] = true; else delete checked[id];
+          save(); update();
+        });
+        all.push({ id: id, hrs: c[1], box: box });
+        card.appendChild(lab);
+      });
+      el.appendChild(card);
+    });
+    if (withApply) {
+      var a = document.createElement('div');
+      a.className = 'apply';
+      a.innerHTML = '<span class="eyebrow">January / February</span><strong>Apply to TWU</strong><span>Minimum 2.75 GPA</span>';
+      el.appendChild(a);
+    }
+  }
+  build(TERMS, 's', document.getElementById('terms'), true);
+
+  var total = all.reduce(function (s, c) { return s + c.hrs; }, 0);
+  document.getElementById('total').textContent = '/ ' + total;
+  document.getElementById('bar').setAttribute('aria-valuemax', total);
+
+  function update() {
+    var hours = 0, done = 0;
+    all.forEach(function (c) { if (c.box.checked) { hours += c.hrs; done++; } });
+    sums.forEach(function (s) {
+      var got = 0;
+      all.forEach(function (c) { if (c.box.checked && c.id.indexOf(s.prefix) === 0) got += c.hrs; });
+      s.el.textContent = got + ' / ' + s.total + ' hrs';
+      s.el.classList.toggle('full', got >= s.total);
+    });
+    var left = total - hours;
+    document.getElementById('hours').textContent = hours;
+    document.getElementById('count').textContent = done + ' of ' + all.length + ' courses checked';
+    document.getElementById('status').textContent = left <= 0 ? 'COM plan complete. Apply to TWU!' : left + ' hours to go';
+    document.getElementById('fill').style.width = Math.round(hours / total * 100) + '%';
+    document.getElementById('bar').setAttribute('aria-valuenow', hours);
+  }
+  update();
+
+  var clearBtn = document.getElementById('clearBtn'), confirmBox = document.getElementById('confirm');
+  clearBtn.addEventListener('click', function () { clearBtn.hidden = true; confirmBox.hidden = false; });
+  document.getElementById('noBtn').addEventListener('click', function () { confirmBox.hidden = true; clearBtn.hidden = false; });
+  document.getElementById('yesBtn').addEventListener('click', function () {
+    checked = {}; save();
+    all.forEach(function (c) { c.box.checked = false; });
+    update();
+    confirmBox.hidden = true; clearBtn.hidden = false;
+  });
+})();
+</script>
+</body>
+</html>
